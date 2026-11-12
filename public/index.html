@@ -45,6 +45,10 @@ main{margin:10px 0 40px;display:grid;gap:16px;grid-template-columns:repeat(auto-
 .call{background:var(--green);color:var(--green-ink);border:0}
 .wa{border:1px solid var(--green);color:var(--green);background:none}
 .del{color:var(--red)}
+.cnt{position:absolute;left:10px;top:10px;background:rgba(0,0,0,.6);color:#fff;font-size:.8rem;padding:3px 10px;border-radius:99px}
+.top[data-act]{cursor:pointer}
+.gal img{width:100%;border-radius:10px;margin:8px 0;display:block}
+dialog{overflow:auto}
 .empty{grid-column:1/-1;text-align:center;padding:50px 10px;color:var(--muted)}
 dialog{border:1px solid var(--line);border-radius:16px;background:var(--surface);color:var(--ink);width:min(560px,94vw);padding:22px;max-height:92vh}
 dialog::backdrop{background:rgba(0,0,0,.5)}
@@ -95,9 +99,9 @@ async function api(p,method="GET",body){
 }
 function form(title,intro,fields,ok,fn){
   const d=$("#dlg");
-  d.innerHTML=`<h2>${title}</h2><p class="loc">${intro}</p><div class="grid">`+fields.map(f=>`<div class="${f.w?"w":""}"><label for="f_${f.id}">${f.label}</label>`+(f.options?`<select id="f_${f.id}">${f.options.map(o=>`<option>${esc(o)}</option>`).join("")}</select>`:`<input id="f_${f.id}" type="${f.type||"text"}" maxlength="${f.max||80}" placeholder="${f.ph||""}" autocomplete="${f.ac||"off"}">`)+`</div>`).join("")+`</div><p class="err" id="err" role="alert"></p><div class="row"><button class="btn ghost" id="no" type="button">Cancel</button><button class="btn" id="yes" type="button">${ok}</button></div>`;
+  d.innerHTML=`<h2>${title}</h2><p class="loc">${intro}</p><div class="grid">`+fields.map(f=>`<div class="${f.w?"w":""}"><label for="f_${f.id}">${f.label}</label>`+(f.options?`<select id="f_${f.id}">${f.options.map(o=>`<option>${esc(o)}</option>`).join("")}</select>`:`<input id="f_${f.id}" type="${f.type||"text"}"${f.type==="file"?' accept="image/*" multiple':''} maxlength="${f.max||80}" placeholder="${f.ph||""}" autocomplete="${f.ac||"off"}">`)+`</div>`).join("")+`</div><p class="err" id="err" role="alert"></p><div class="row"><button class="btn ghost" id="no" type="button">Cancel</button><button class="btn" id="yes" type="button">${ok}</button></div>`;
   $("#no").onclick=()=>d.close();
-  $("#yes").onclick=async()=>{const v={};fields.forEach(f=>v[f.id]=$("#f_"+f.id).value);$("#yes").disabled=true;
+  $("#yes").onclick=async()=>{const v={};fields.forEach(f=>v[f.id]=f.type==="file"?$("#f_"+f.id).files:$("#f_"+f.id).value);$("#yes").disabled=true;
     try{await fn(v);d.close()}catch(e){$("#err").textContent=e.message;$("#yes").disabled=false}};
   d.showModal();
 }
@@ -117,8 +121,11 @@ function postHouse(){
   if(M.user.role==="hunter"){$("#note").textContent="Only caretakers, landlords and agents can post houses. Create an account as one of them to post.";return}
   form("Post a house","Renters will call or request a viewing. Your name and phone number come from your account.",[
     {id:"title",label:"Title",w:1,max:60,ph:"e.g. Spacious 2 bedroom"},{id:"county",label:"County",options:M.counties},{id:"area",label:"Area or estate",max:50,ph:"e.g. Ruaka"},
-    {id:"type",label:"House type",options:M.types},{id:"rent",label:"Rent per month (KES)",type:"number"},{id:"tags",label:"Features (separate with commas)",w:1,max:100,ph:"Water included, Parking, Gated"}],
-    "Publish house",async v=>{await api("/houses","POST",v);tab="h";await load()});
+    {id:"type",label:"House type",options:M.types},{id:"rent",label:"Rent per month (KES)",type:"number"},{id:"tags",label:"Features (separate with commas)",w:1,max:100,ph:"Water included, Parking, Gated"},{id:"photos",label:"Photos (up to 4, optional)",type:"file",w:1}],
+    "Publish house",async v=>{
+      const files=[...v.photos].slice(0,4);delete v.photos;const r=await api("/houses","POST",v);let bad=0;
+      for(const f of files){try{const b=await shrink(f);const x=await fetch("/api/houses/"+r.id+"/photos",{method:"POST",headers:{"Content-Type":"image/jpeg"},body:b});if(!x.ok)bad++}catch(e){bad++}}
+      $("#note").textContent=bad?bad+" photo(s) could not be uploaded, but the house was posted.":"";tab="h";await load()});
 }
 function want(){
   if(!need())return;
@@ -134,9 +141,16 @@ function viewing(id){
     "Send request",async v=>{await api("/houses/"+id+"/enquiries","POST",v);$("#note").textContent="Request sent. The poster will see it under My account and can call you."});
 }
 
+function shrink(file){return new Promise((ok,no)=>{const img=new Image(),u=URL.createObjectURL(file);
+  img.onload=()=>{const s=Math.min(1,1024/Math.max(img.width,img.height)),c=document.createElement("canvas");c.width=Math.round(img.width*s);c.height=Math.round(img.height*s);c.getContext("2d").drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(u);c.toBlob(b=>b?ok(b):no(new Error("x")),"image/jpeg",.72)};
+  img.onerror=()=>{URL.revokeObjectURL(u);no(new Error("x"))};img.src=u})}
+function gallery(id){const h=[...data.h,...(data.mine?data.mine.houses:[])].find(x=>x.id===id);if(!h)return;const d=$("#dlg");
+  d.innerHTML=`<h2>${esc(h.title)}</h2><p class="loc">${esc(h.area)} (${esc(h.county)} County)</p><div class="gal">${h.photos.map(p=>`<img src="/photo/${p}" alt="Photo of ${esc(h.title)}" loading="lazy">`).join("")}</div><div class="row"><button class="btn" id="no" type="button">Close</button></div>`;
+  $("#no").onclick=()=>d.close();d.showModal()}
+const topAttr=h=>h.photos&&h.photos.length?`style="background:linear-gradient(180deg,rgba(0,0,0,.05) 35%,rgba(0,0,0,.7)),url(/photo/${h.photos[0]}) center/cover" data-act="gal" data-id="${h.id}"`:`style="background:${hue(h.type)}"`;
 const who=(role,name,phone,extra)=>phone?`<small>${esc(RL[role]||"House hunter")}</small><strong>${esc(name)}</strong><strong>${esc(pretty(phone))}</strong><div class="act"><a class="call" href="tel:+${intl(phone)}">Call</a>${extra}</div>`
   :`<small>${esc(RL[role]||"House hunter")}</small><div class="act"><button class="wa" data-act="auth">Sign in to see the phone number</button></div>`;
-const houseCard=h=>`<article class="card"><div class="top" style="background:${hue(h.type)}"><button class="fav" data-act="fav" data-id="${h.id}" aria-label="${saved.has(h.id)?"Remove from saved":"Save this house"}">${saved.has(h.id)?"\u2665":"\u2661"}</button><b>${fmt(h.rent)}</b><span>per month</span></div><div class="body"><h2>${esc(h.title)}</h2><p class="loc">${esc(h.area)} (${esc(h.county)} County)</p><div class="chips"><span class="chip">${esc(h.type)}</span>${h.tags.map(t=>`<span class="chip">${esc(t)}</span>`).join("")}</div><div class="care">${who(h.role,h.name,h.phone,h.mine?"":`<button class="wa" data-act="view" data-id="${h.id}">Request viewing</button>`)}${h.mine?`<button class="link del" data-act="delh" data-id="${h.id}">Remove this listing</button>`:""}</div></div></article>`;
+const houseCard=h=>`<article class="card"><div class="top" ${topAttr(h)}><button class="fav" data-act="fav" data-id="${h.id}" aria-label="${saved.has(h.id)?"Remove from saved":"Save this house"}">${saved.has(h.id)?"\u2665":"\u2661"}</button>${h.photos&&h.photos.length?`<span class="cnt">${h.photos.length} photo${h.photos.length>1?"s":""}</span>`:""}<b>${fmt(h.rent)}</b><span>per month</span></div><div class="body"><h2>${esc(h.title)}</h2><p class="loc">${esc(h.area)} (${esc(h.county)} County)</p><div class="chips"><span class="chip">${esc(h.type)}</span>${h.tags.map(t=>`<span class="chip">${esc(t)}</span>`).join("")}</div><div class="care">${who(h.role,h.name,h.phone,h.mine?"":`<button class="wa" data-act="view" data-id="${h.id}">Request viewing</button>`)}${h.mine?`<button class="link del" data-act="delh" data-id="${h.id}">Remove this listing</button>`:""}</div></div></article>`;
 const wantCard=w=>`<article class="card"><div class="top" style="background:#2b3f8f"><b>Up to ${fmt(w.budget)}</b><span>per month</span></div><div class="body"><h2>Looking for: ${esc(w.type)}</h2><p class="loc">Preferred area: ${esc(w.area)} (${esc(w.county)} County)</p>${w.note?`<p class="loc">${esc(w.note)}</p>`:""}<div class="care">${who("hunter",w.name,w.phone,w.phone?`<a class="wa" href="https://wa.me/${intl(w.phone)}?text=${encodeURIComponent("Hello "+w.name+", I have a "+w.type+" in "+w.area+" that may suit you. Are you still looking?")}" target="_blank" rel="noopener">WhatsApp</a>`:"")}${w.mine?`<button class="link del" data-act="delw" data-id="${w.id}">Remove this request</button>`:""}</div></div></article>`;
 const empty=(a,b)=>`<div class="empty"><p><b>${a}</b></p><p>${b}</p></div>`;
 
@@ -167,7 +181,7 @@ document.addEventListener("click",async e=>{
   const b=e.target.closest("[data-act]");if(!b)return;const a=b.dataset.act,id=+b.dataset.id;
   if(a==="in"||a==="up")auth(a);else if(a==="auth")auth("up");
   else if(a==="out"){await api("/logout","POST");M.user=null;data.mine=null;if(tab==="m")tab="h";load()}
-  else if(a==="post")postHouse();else if(a==="want")want();else if(a==="view")viewing(id);
+  else if(a==="post")postHouse();else if(a==="want")want();else if(a==="view")viewing(id);else if(a==="gal")gallery(id);
   else if(a==="fav"){saved.has(id)?saved.delete(id):saved.add(id);try{localStorage.setItem("nyumba-saved",JSON.stringify([...saved]))}catch(x){}draw()}
   else if((a==="delh"||a==="delw")&&confirm("Remove this?")){try{await api((a==="delh"?"/houses/":"/wanted/")+id,"DELETE");load()}catch(x){$("#note").textContent=x.message}}
 });

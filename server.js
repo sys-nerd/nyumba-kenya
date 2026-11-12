@@ -15,7 +15,8 @@ CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY,name TEXT,phone TEXT UNI
 CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY,user_id INTEGER,expires INTEGER);
 CREATE TABLE IF NOT EXISTS houses(id INTEGER PRIMARY KEY,user_id INTEGER,title TEXT,county TEXT,area TEXT,type TEXT,rent INTEGER,tags TEXT,created INTEGER);
 CREATE TABLE IF NOT EXISTS wanted(id INTEGER PRIMARY KEY,user_id INTEGER,county TEXT,area TEXT,type TEXT,budget INTEGER,note TEXT,created INTEGER);
-CREATE TABLE IF NOT EXISTS enquiries(id INTEGER PRIMARY KEY,house_id INTEGER,user_id INTEGER,when_text TEXT,message TEXT,created INTEGER);`);
+CREATE TABLE IF NOT EXISTS enquiries(id INTEGER PRIMARY KEY,house_id INTEGER,user_id INTEGER,when_text TEXT,message TEXT,created INTEGER);
+CREATE TABLE IF NOT EXISTS photos(id INTEGER PRIMARY KEY,house_id INTEGER,data BLOB,created INTEGER);`);
 const clean = () => db.prepare("DELETE FROM sessions WHERE expires<?").run(Date.now());
 clean(); setInterval(clean, 36e5).unref();
 
@@ -32,6 +33,13 @@ function readBody(req) {
     let s = "";
     req.on("data", c => { s += c; if (s.length > 20000) { no(Object.assign(new Error("Request too large."), { status: 413 })); req.destroy(); } });
     req.on("end", () => { try { ok(s ? JSON.parse(s) : {}); } catch { no(Object.assign(new Error("Invalid request."), { status: 400 })); } });
+  });
+}
+function readRaw(req, max) {
+  return new Promise((ok, no) => {
+    const parts = []; let n = 0;
+    req.on("data", c => { n += c.length; if (n <= max) parts.push(c); });   // keep reading so we can answer properly
+    req.on("end", () => n > max ? no(Object.assign(new Error("That photo is too large."), { status: 413 })) : ok(Buffer.concat(parts)));
   });
 }
 const cookies = req => Object.fromEntries((req.headers.cookie || "").split(";").map(c => c.trim().split("=")).filter(a => a[0]).map(a => [a[0], a.slice(1).join("=")]));
@@ -52,6 +60,11 @@ function startSession(req, res, uid) {
   const t = crypto.randomBytes(32).toString("hex");
   db.prepare("INSERT INTO sessions VALUES(?,?,?)").run(t, uid, Date.now() + 30 * 864e5);
   res.setHeader("Set-Cookie", `sid=${t}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${30 * 86400}${secure(req) ? "; Secure" : ""}`);
+}
+function photosFor(ids) {
+  const out = {}; if (!ids.length) return out;
+  for (const p of db.prepare("SELECT id,house_id FROM photos WHERE house_id IN (" + ids.map(() => "?").join(",") + ") ORDER BY id").all(...ids)) (out[p.house_id] ||= []).push(p.id);
+  return out;
 }
 const isAdmin = u => u && ADMIN_PHONE && u.phone === ADMIN_PHONE;
 const needUser = u => u || fail(401, "Sign in first.");
@@ -93,7 +106,8 @@ async function route(req, res, url) {
     const rows = db.prepare(`SELECT h.id,h.title,h.county,h.area,h.type,h.rent,h.tags,h.user_id,u.name,u.phone,u.role FROM houses h JOIN users u ON u.id=h.user_id
       WHERE (?='' OR h.county=?) AND (?='' OR h.type=?) AND (?=0 OR h.rent<=?) AND (?='' OR h.area LIKE '%'||?||'%' OR h.title LIKE '%'||?||'%') ORDER BY h.rent LIMIT 300`)
       .all(f.county, f.county, f.type, f.type, f.max, f.max, f.q, f.q, f.q);
-    return json(res, 200, { houses: rows.map(h => ({ id: h.id, title: h.title, county: h.county, area: h.area, type: h.type, rent: h.rent, tags: JSON.parse(h.tags || "[]"), role: h.role,
+    const ph = photosFor(rows.map(h => h.id));
+    return json(res, 200, { houses: rows.map(h => ({ photos: ph[h.id] || [], id: h.id, title: h.title, county: h.county, area: h.area, type: h.type, rent: h.rent, tags: JSON.parse(h.tags || "[]"), role: h.role,
       name: u ? h.name : null, phone: u ? h.phone : null, mine: !!u && (h.user_id === u.id || isAdmin(u)) })) });
   }
   if (m === "POST" && p === "/api/houses") {
@@ -101,16 +115,16 @@ async function route(req, res, url) {
     if (db.prepare("SELECT COUNT(*) c FROM houses WHERE user_id=?").get(u.id).c >= 50) fail(400, "You can post up to 50 houses.");
     const b = await readBody(req);
     const tags = String(b.tags || "").split(",").map(s => s.trim().slice(0, 30)).filter(Boolean).slice(0, 6);
-    db.prepare("INSERT INTO houses(user_id,title,county,area,type,rent,tags,created) VALUES(?,?,?,?,?,?,?,?)").run(u.id,
+    const ins = db.prepare("INSERT INTO houses(user_id,title,county,area,type,rent,tags,created) VALUES(?,?,?,?,?,?,?,?)").run(u.id,
       txt(b.title, 3, 60, "Enter a title for the house."), pick(b.county, COUNTIES, "Choose a county."), txt(b.area, 2, 50, "Enter the area or estate."),
       pick(b.type, TYPES, "Choose the house type."), num(b.rent, 500, 1000000, "Enter the monthly rent in KES."), JSON.stringify(tags), Date.now());
-    return json(res, 200, { ok: true });
+    return json(res, 200, { ok: true, id: Number(ins.lastInsertRowid) });
   }
   let mm;
   if (m === "DELETE" && (mm = p.match(/^\/api\/houses\/(\d+)$/))) {
     needUser(u); const h = db.prepare("SELECT user_id FROM houses WHERE id=?").get(+mm[1]);
     if (!h || (h.user_id !== u.id && !isAdmin(u))) fail(404, "House not found.");
-    db.prepare("DELETE FROM enquiries WHERE house_id=?").run(+mm[1]); db.prepare("DELETE FROM houses WHERE id=?").run(+mm[1]);
+    db.prepare("DELETE FROM photos WHERE house_id=?").run(+mm[1]); db.prepare("DELETE FROM enquiries WHERE house_id=?").run(+mm[1]); db.prepare("DELETE FROM houses WHERE id=?").run(+mm[1]);
     return json(res, 200, { ok: true });
   }
   if (m === "POST" && (mm = p.match(/^\/api\/houses\/(\d+)\/enquiries$/))) {
@@ -119,6 +133,17 @@ async function route(req, res, url) {
     const b = await readBody(req);
     db.prepare("INSERT INTO enquiries(house_id,user_id,when_text,message,created) VALUES(?,?,?,?,?)").run(+mm[1], u.id, txt(b.when, 1, 30, "Choose when you can view."), String(b.message || "").trim().slice(0, 200), Date.now());
     return json(res, 200, { ok: true });
+  }
+
+  if (m === "POST" && (mm = p.match(/^\/api\/houses\/(\d+)\/photos$/))) {
+    needUser(u); const h = db.prepare("SELECT user_id FROM houses WHERE id=?").get(+mm[1]);
+    if (!h || h.user_id !== u.id) fail(404, "House not found.");
+    if (db.prepare("SELECT COUNT(*) c FROM photos WHERE house_id=?").get(+mm[1]).c >= 4) fail(400, "A house can have up to 4 photos.");
+    if (!(req.headers["content-type"] || "").startsWith("image/jpeg")) fail(400, "Photos must be JPEG images.");
+    const buf = await readRaw(req, 400000);
+    if (buf.length < 100 || buf[0] !== 0xFF || buf[1] !== 0xD8 || buf[2] !== 0xFF) fail(400, "That file is not a valid photo.");
+    const pr = db.prepare("INSERT INTO photos(house_id,data,created) VALUES(?,?,?)").run(+mm[1], buf, Date.now());
+    return json(res, 200, { ok: true, id: Number(pr.lastInsertRowid) });
   }
 
   if (m === "GET" && p === "/api/wanted") {
@@ -140,7 +165,8 @@ async function route(req, res, url) {
   if (m === "GET" && p === "/api/my") {
     needUser(u);
     const enquiries = db.prepare(`SELECT e.id,e.when_text AS "when",e.message,h.title,x.name,x.phone FROM enquiries e JOIN houses h ON h.id=e.house_id JOIN users x ON x.id=e.user_id WHERE h.user_id=? ORDER BY e.created DESC LIMIT 200`).all(u.id);
-    const houses = db.prepare("SELECT id,title,county,area,type,rent,tags FROM houses WHERE user_id=? ORDER BY created DESC").all(u.id).map(h => ({ ...h, tags: JSON.parse(h.tags || "[]"), role: u.role, name: u.name, phone: u.phone, mine: true }));
+    const mine = db.prepare("SELECT id,title,county,area,type,rent,tags FROM houses WHERE user_id=? ORDER BY created DESC").all(u.id), ph = photosFor(mine.map(h => h.id));
+    const houses = mine.map(h => ({ photos: ph[h.id] || [], ...h, tags: JSON.parse(h.tags || "[]"), role: u.role, name: u.name, phone: u.phone, mine: true }));
     const wanted = db.prepare("SELECT id,county,area,type,budget,note FROM wanted WHERE user_id=? ORDER BY created DESC").all(u.id).map(w => ({ ...w, name: u.name, phone: u.phone, mine: true }));
     return json(res, 200, { enquiries, houses, wanted });
   }
@@ -150,9 +176,16 @@ async function route(req, res, url) {
 const page = () => fs.readFileSync(path.join(__dirname, "public", "index.html"));
 http.createServer(async (req, res) => {
   res.setHeader("X-Content-Type-Options", "nosniff"); res.setHeader("Referrer-Policy", "same-origin");
-  res.setHeader("Content-Security-Policy", "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; frame-ancestors 'none'");
+  res.setHeader("Content-Security-Policy", "default-src 'self'; img-src 'self' blob: data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; frame-ancestors 'none'");
   const url = new URL(req.url, "http://x");
   try {
+    const pm = req.method === "GET" && url.pathname.match(/^\/photo\/(\d+)$/);
+    if (pm) {
+      const row = db.prepare("SELECT data FROM photos WHERE id=?").get(+pm[1]);
+      if (!row) fail(404, "Not found.");
+      res.writeHead(200, { "Content-Type": "image/jpeg", "Cache-Control": "public, max-age=86400" });
+      return res.end(Buffer.from(row.data));
+    }
     if (url.pathname === "/healthz") { res.writeHead(200); return res.end("ok"); }
     if (url.pathname.startsWith("/api/")) return await route(req, res, url);
     if (req.method === "GET" && url.pathname === "/") { res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" }); return res.end(page()); }
