@@ -49,6 +49,11 @@ main{margin:10px 0 40px;display:grid;gap:16px;grid-template-columns:repeat(auto-
 .top[data-act]{cursor:pointer}
 .gal img{width:100%;border-radius:10px;margin:8px 0;display:block}
 dialog{overflow:auto}
+.nav{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+.info{max-width:70ch;margin:20px 0 40px}
+.info h2{font:800 1.6rem Georgia,serif;margin:0 0 10px}
+.info a{color:var(--green);font-weight:700}
+.info li{margin-bottom:6px}
 .empty{grid-column:1/-1;text-align:center;padding:50px 10px;color:var(--muted)}
 dialog{border:1px solid var(--line);border-radius:16px;background:var(--surface);color:var(--ink);width:min(560px,94vw);padding:22px;max-height:92vh}
 dialog::backdrop{background:rgba(0,0,0,.5)}
@@ -68,6 +73,7 @@ footer{color:var(--muted);font-size:.85rem;padding-bottom:30px}
   <div><h1>Nyumba Kenya</h1><p>Landlords, agents and caretakers post houses with their own phone numbers. House hunters connect with them in one tap, or post the house they are looking for.</p></div>
   <div class="acct" id="acct"></div>
 </header>
+<nav class="nav" id="nav" aria-label="Main"></nav>
 <div class="tabs" id="tabs"></div>
 <p class="note" id="note" role="status"></p>
 <section class="bar" aria-label="Search and filters">
@@ -77,8 +83,9 @@ footer{color:var(--muted);font-size:.85rem;padding-bottom:30px}
   <div><label for="price">Max rent per month</label><select id="price"><option value="0">Any price</option><option value="5000">KES 5,000</option><option value="10000">KES 10,000</option><option value="20000">KES 20,000</option><option value="40000">KES 40,000</option><option value="80000">KES 80,000</option></select></div>
 </section>
 <div class="meta"><span id="count"></span><span><button class="link" id="favOnly" aria-pressed="false">Show saved only</button> · <button class="link" id="reset">Clear filters</button></span></div>
+<section class="info" id="info" hidden></section>
 <main id="list" aria-live="polite"></main>
-<footer>Always view a house in person and confirm the rent with the caretaker before paying any deposit.</footer>
+<footer>Always view a house in person and confirm the rent with the caretaker before paying any deposit.<br>Questions, or a bad listing to report? Call or WhatsApp <a href="tel:+254710827845">0710 827 845</a> or email <a href="mailto:nyumbakenya@gmail.com">nyumbakenya@gmail.com</a>.</footer>
 </div>
 <dialog id="dlg"></dialog>
 
@@ -148,6 +155,20 @@ function gallery(id){const h=[...data.h,...(data.mine?data.mine.houses:[])].find
   d.innerHTML=`<h2>${esc(h.title)}</h2><p class="loc">${esc(h.area)} (${esc(h.county)} County)</p><div class="gal">${h.photos.map(p=>`<img src="/photo/${p}" alt="Photo of ${esc(h.title)}" loading="lazy">`).join("")}</div><div class="row"><button class="btn" id="no" type="button">Close</button></div>`;
   $("#no").onclick=()=>d.close();d.showModal()}
 const topAttr=h=>h.photos&&h.photos.length?`style="background:linear-gradient(180deg,rgba(0,0,0,.05) 35%,rgba(0,0,0,.7)),url(/photo/${h.photos[0]}) center/cover" data-act="gal" data-id="${h.id}"`:`style="background:${hue(h.type)}"`;
+let page="home";
+const PAGES={
+about:`<h2>About Nyumba Kenya</h2><p>Nyumba Kenya helps people find a house to rent anywhere in Kenya. Caretakers, landlords and agents post their houses with the rent, the location and their own phone number, so renters talk straight to the person who can show them the house.</p><p>House hunters can search by county, area, house type and price, call the person who posted a house, or request a viewing. They can also post the house they are looking for, so owners with a match can contact them.</p><p>It is free to use.</p>`,
+contact:`<h2>Contact us</h2><p>Questions, a wrong detail on a listing, or a bad listing to report? Reach us here:</p><ul><li>Phone: <a href="tel:+254710827845">0710 827 845</a></li><li>WhatsApp: <a href="https://wa.me/254710827845" target="_blank" rel="noopener">0710 827 845</a></li><li>Email: <a href="mailto:nyumbakenya@gmail.com">nyumbakenya@gmail.com</a></li></ul>`,
+safety:`<h2>Safety tips for house hunting</h2><ul><li>Always view the house in person before you pay anything.</li><li>Never send a deposit or rent to someone you have not met, however good the photos look.</li><li>Check that the person showing you the house is the caretaker, landlord or agent, and ask to see proof if you are unsure.</li><li>Agree the rent, deposit and rules in writing, and ask for a receipt for every payment.</li><li>Take a friend or family member with you to viewings, and go in the daytime if you can.</li><li>If a price looks too good to be true, be careful. Report suspicious listings to us.</li></ul>`};
+function route(){
+  const home=page==="home";
+  ["#tabs",".bar",".meta","#list"].forEach(q=>document.querySelector(q).style.display=home?"":"none");
+  $("#note").style.display=home?"":"none";
+  const i=$("#info");i.hidden=home;i.innerHTML=home?"":PAGES[page];
+  $("#nav").innerHTML=[["home","Home"],["about","About"],["contact","Contact"],["safety","Safety tips"]].map(p=>`<button class="tab ${page===p[0]?"on":""}" data-page="${p[0]}">${p[1]}</button>`).join("");
+  if(home&&M.counties.length)draw();
+  window.scrollTo(0,0);
+}
 const who=(role,name,phone,extra)=>phone?`<small>${esc(RL[role]||"House hunter")}</small><strong>${esc(name)}</strong><strong>${esc(pretty(phone))}</strong><div class="act"><a class="call" href="tel:+${intl(phone)}">Call</a>${extra}</div>`
   :`<small>${esc(RL[role]||"House hunter")}</small><div class="act"><button class="wa" data-act="auth">Sign in to see the phone number</button></div>`;
 const houseCard=h=>`<article class="card"><div class="top" ${topAttr(h)}><button class="fav" data-act="fav" data-id="${h.id}" aria-label="${saved.has(h.id)?"Remove from saved":"Save this house"}">${saved.has(h.id)?"\u2665":"\u2661"}</button>${h.photos&&h.photos.length?`<span class="cnt">${h.photos.length} photo${h.photos.length>1?"s":""}</span>`:""}<b>${fmt(h.rent)}</b><span>per month</span></div><div class="body"><h2>${esc(h.title)}</h2><p class="loc">${esc(h.area)} (${esc(h.county)} County)</p><div class="chips"><span class="chip">${esc(h.type)}</span>${h.tags.map(t=>`<span class="chip">${esc(t)}</span>`).join("")}</div><div class="care">${who(h.role,h.name,h.phone,h.mine?"":`<button class="wa" data-act="view" data-id="${h.id}">Request viewing</button>`)}${h.mine?`<button class="link del" data-act="delh" data-id="${h.id}">Remove this listing</button>`:""}</div></div></article>`;
@@ -157,7 +178,7 @@ const empty=(a,b)=>`<div class="empty"><p><b>${a}</b></p><p>${b}</p></div>`;
 function draw(){
   $("#acct").innerHTML=(M.user?`<span>Hi, ${esc(M.user.name)}</span><button class="btn ghost" data-act="out">Sign out</button>`:`<button class="btn ghost" data-act="in">Sign in</button><button class="btn" data-act="up">Create account</button>`)+`<button class="btn" data-act="post">Post a house</button><button class="btn ghost" data-act="want">I\u2019m looking for a house</button>`;
   $("#tabs").innerHTML=[["h","Houses to rent"],["w","House hunters looking"],...(M.user?[["m","My account"]]:[])].map(t=>`<button class="tab ${tab===t[0]?"on":""}" data-tab="${t[0]}">${t[1]}</button>`).join("");
-  document.querySelector(".bar").style.display=document.querySelector(".meta").style.display=tab==="m"?"none":"";
+  document.querySelector(".bar").style.display=document.querySelector(".meta").style.display=tab==="m"||page!=="home"?"none":"";
   if(tab==="h"){const r=data.h.filter(h=>!onlySaved||saved.has(h.id));$("#count").textContent=r.length+(r.length===1?" house":" houses")+" found, lowest rent first";
     $("#list").innerHTML=r.length?r.map(houseCard).join(""):empty(data.h.length?"No saved houses yet.":"No houses match these filters.","Try a higher rent, another county or clear the filters, or tap \u201cI\u2019m looking for a house\u201d so owners can contact you.")}
   else if(tab==="w"){$("#count").textContent=data.w.length+(data.w.length===1?" house hunter":" house hunters")+" looking";
@@ -177,6 +198,7 @@ async function load(){
   draw();
 }
 document.addEventListener("click",async e=>{
+  const pg=e.target.closest("[data-page]");if(pg){page=pg.dataset.page;return route()}
   const t=e.target.closest("[data-tab]");if(t){tab=t.dataset.tab;$("#note").textContent="";return load()}
   const b=e.target.closest("[data-act]");if(!b)return;const a=b.dataset.act,id=+b.dataset.id;
   if(a==="in"||a==="up")auth(a);else if(a==="auth")auth("up");
@@ -188,6 +210,7 @@ document.addEventListener("click",async e=>{
 let tm;["q","county","type","price"].forEach(i=>$("#"+i).addEventListener("input",()=>{clearTimeout(tm);tm=setTimeout(load,250)}));
 $("#favOnly").onclick=e=>{onlySaved=!onlySaved;e.target.setAttribute("aria-pressed",onlySaved);e.target.textContent=onlySaved?"Show all houses":"Show saved only";draw()};
 $("#reset").onclick=()=>{["q","county","type"].forEach(i=>$("#"+i).value="");$("#price").value="0";onlySaved=false;$("#favOnly").textContent="Show saved only";load()};
+route();
 (async()=>{
   try{M=await api("/meta");
     const o=(a,l)=>`<option value="">${l}</option>`+a.map(v=>`<option>${esc(v)}</option>`).join("");
