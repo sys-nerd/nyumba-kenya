@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Nyumba Kenya – Find a house to rent</title>
+<style>
+:root{--bg:#f5f6f1;--surface:#fff;--ink:#17231c;--muted:#5b6a60;--line:#dde2d8;--green:#0b6b3a;--green-ink:#fff;--red:#b3261e;--chip:#e8efe6}
+@media (prefers-color-scheme:dark){:root{--bg:#101712;--surface:#18221b;--ink:#eef3ec;--muted:#9fb0a4;--line:#2a372e;--green:#3fbf7a;--green-ink:#08150d;--red:#ff7a70;--chip:#223028}}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.5 system-ui,"Segoe UI",Roboto,sans-serif;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.stripe{height:6px;background:linear-gradient(90deg,#111 0 30%,var(--red) 30% 36%,var(--green) 36% 100%)}
+.wrap{max-width:1100px;margin:0 auto;padding:0 20px}
+header{padding-top:24px;display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap}
+h1{font:800 clamp(2rem,6vw,3.2rem)/1.05 Georgia,"Times New Roman",serif;margin:0 0 8px;letter-spacing:-.02em}
+header p{margin:0;color:var(--muted);max-width:52ch}
+.acct{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.btn{background:var(--green);color:var(--green-ink);border:0;border-radius:10px;padding:11px 16px;font:700 .95rem system-ui,sans-serif;cursor:pointer}
+.btn.ghost{background:none;color:var(--ink);border:1px solid var(--line)}
+.btn[disabled]{opacity:.5}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}
+.tab{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:99px;padding:9px 16px;font:700 .95rem system-ui,sans-serif;cursor:pointer}
+.tab.on{background:var(--green);color:var(--green-ink);border-color:var(--green)}
+.bar{display:grid;gap:10px;grid-template-columns:2fr 1fr 1fr 1fr;margin-top:14px}
+@media(max-width:760px){.bar{grid-template-columns:1fr 1fr}.bar .s{grid-column:1/-1}}
+label{display:block;font-size:.8rem;color:var(--muted);margin-bottom:3px}
+input,select{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit}
+:focus-visible{outline:3px solid var(--green);outline-offset:2px}
+.meta{margin-top:14px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;color:var(--muted);font-size:.92rem}
+.link{background:none;border:0;color:var(--green);font:inherit;font-weight:700;cursor:pointer;padding:6px 0}
+main{margin:10px 0 40px;display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+.sec{grid-column:1/-1;margin:14px 0 0;font:700 1.3rem Georgia,serif}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
+.top{padding:16px;color:#fff;position:relative;min-height:104px;display:flex;flex-direction:column;justify-content:flex-end}
+.top b{font:800 1.5rem/1.1 Georgia,serif}.top span{font-size:.9rem;opacity:.92}
+.fav{position:absolute;top:10px;right:10px;width:40px;height:40px;border-radius:50%;border:0;background:rgba(255,255,255,.92);color:#b3261e;font-size:1.2rem;cursor:pointer}
+.body{padding:14px 16px 16px;display:flex;flex-direction:column;gap:10px;flex:1}
+.body h2{font:700 1.05rem/1.3 Georgia,serif;margin:0}
+.loc{color:var(--muted);font-size:.92rem;margin:0}
+.chips{display:flex;flex-wrap:wrap;gap:6px}.chip{background:var(--chip);padding:3px 10px;border-radius:99px;font-size:.82rem}
+.care{margin-top:auto;border-top:1px dashed var(--line);padding-top:12px}
+.care small{color:var(--muted);display:block}.care strong{display:block}
+.act{display:flex;gap:8px;margin-top:10px}
+.act a,.act button{flex:1;text-align:center;padding:10px;border-radius:10px;text-decoration:none;font:700 .95rem system-ui,sans-serif;cursor:pointer}
+.call{background:var(--green);color:var(--green-ink);border:0}
+.wa{border:1px solid var(--green);color:var(--green);background:none}
+.del{color:var(--red)}
+.empty{grid-column:1/-1;text-align:center;padding:50px 10px;color:var(--muted)}
+dialog{border:1px solid var(--line);border-radius:16px;background:var(--surface);color:var(--ink);width:min(560px,94vw);padding:22px;max-height:92vh}
+dialog::backdrop{background:rgba(0,0,0,.5)}
+dialog h2{font:800 1.5rem Georgia,serif;margin:0 0 4px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0}.grid .w{grid-column:1/-1}
+@media(max-width:520px){.grid{grid-template-columns:1fr}}
+.err{color:var(--red);min-height:1.4em;font-size:.9rem;margin:0 0 8px}
+.row{display:flex;gap:10px;justify-content:flex-end}
+.note{color:var(--green);font-weight:700;min-height:1.5em;margin:10px 0 0}
+footer{color:var(--muted);font-size:.85rem;padding-bottom:30px}
+</style>
+</head>
+<body>
+<div class="stripe"></div>
+<div class="wrap">
+<header>
+  <div><h1>Nyumba Kenya</h1><p>Landlords, agents and caretakers post houses with their own phone numbers. House hunters connect with them in one tap, or post the house they are looking for.</p></div>
+  <div class="acct" id="acct"></div>
+</header>
+<div class="tabs" id="tabs"></div>
+<p class="note" id="note" role="status"></p>
+<section class="bar" aria-label="Search and filters">
+  <div class="s"><label for="q">Search area or estate</label><input id="q" type="search" placeholder="e.g. Kilimani, Nyali, Milimani"></div>
+  <div><label for="county">County</label><select id="county"></select></div>
+  <div><label for="type">House type</label><select id="type"></select></div>
+  <div><label for="price">Max rent per month</label><select id="price"><option value="0">Any price</option><option value="5000">KES 5,000</option><option value="10000">KES 10,000</option><option value="20000">KES 20,000</option><option value="40000">KES 40,000</option><option value="80000">KES 80,000</option></select></div>
+</section>
+<div class="meta"><span id="count"></span><span><button class="link" id="favOnly" aria-pressed="false">Show saved only</button> · <button class="link" id="reset">Clear filters</button></span></div>
+<main id="list" aria-live="polite"></main>
+<footer>Always view a house in person and confirm the rent with the caretaker before paying any deposit.</footer>
+</div>
+<dialog id="dlg"></dialog>
+
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmt=n=>"KES "+Number(n).toLocaleString("en-KE"),intl=p=>"254"+p.slice(1),pretty=p=>p.replace(/(\d{4})(\d{3})(\d{3})/,"$1 $2 $3");
+const RL={hunter:"House hunter",caretaker:"Caretaker",landlord:"Landlord",agent:"Agent"};
+let M={counties:[],types:[],user:null},tab="h",data={h:[],w:[],mine:null},onlySaved=false,saved=new Set();
+try{saved=new Set(JSON.parse(localStorage.getItem("nyumba-saved")||"[]"))}catch(e){}
+const hue=t=>"#"+["0b6b3a","6b4a0b","1b5e8a","7a2a5e","8a3b1b","2b3f8f","3b6b2b","5a3d7a"][Math.max(0,M.types.indexOf(t))%8];
+
+async function api(p,method="GET",body){
+  const r=await fetch("/api"+p,{method,headers:body?{"Content-Type":"application/json"}:{},body:body?JSON.stringify(body):undefined});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(d.error||"Something went wrong. Try again.");
+  return d;
+}
+function form(title,intro,fields,ok,fn){
+  const d=$("#dlg");
+  d.innerHTML=`<h2>${title}</h2><p class="loc">${intro}</p><div class="grid">`+fields.map(f=>`<div class="${f.w?"w":""}"><label for="f_${f.id}">${f.label}</label>`+(f.options?`<select id="f_${f.id}">${f.options.map(o=>`<option>${esc(o)}</option>`).join("")}</select>`:`<input id="f_${f.id}" type="${f.type||"text"}" maxlength="${f.max||80}" placeholder="${f.ph||""}" autocomplete="${f.ac||"off"}">`)+`</div>`).join("")+`</div><p class="err" id="err" role="alert"></p><div class="row"><button class="btn ghost" id="no" type="button">Cancel</button><button class="btn" id="yes" type="button">${ok}</button></div>`;
+  $("#no").onclick=()=>d.close();
+  $("#yes").onclick=async()=>{const v={};fields.forEach(f=>v[f.id]=$("#f_"+f.id).value);$("#yes").disabled=true;
+    try{await fn(v);d.close()}catch(e){$("#err").textContent=e.message;$("#yes").disabled=false}};
+  d.showModal();
+}
+function auth(mode){
+  const up=mode==="up";
+  form(up?"Create your account":"Sign in",up?`Already have an account? <button class="link" id="sw" type="button">Sign in</button>`:`New here? <button class="link" id="sw" type="button">Create an account</button>`,
+    [...(up?[{id:"name",label:"Your name",max:40,ac:"name"}]:[]),{id:"phone",label:"Phone number",type:"tel",ph:"07XX XXX XXX",ac:"tel"},
+     ...(up?[{id:"role",label:"I am a",options:Object.values(RL)}]:[]),{id:"password",label:up?"Choose a password (6+ characters)":"Password",type:"password",max:100,ac:up?"new-password":"current-password",w:!up}],
+    up?"Create account":"Sign in",async v=>{
+      if(up)v.role=Object.keys(RL).find(k=>RL[k]===v.role);
+      M.user=(await api(up?"/signup":"/login","POST",v)).user;await load();});
+  $("#sw").onclick=()=>auth(up?"in":"up");
+}
+const need=()=>{if(!M.user){auth("up");return false}return true};
+function postHouse(){
+  if(!need())return;
+  if(M.user.role==="hunter"){$("#note").textContent="Only caretakers, landlords and agents can post houses. Create an account as one of them to post.";return}
+  form("Post a house","Renters will call or request a viewing. Your name and phone number come from your account.",[
+    {id:"title",label:"Title",w:1,max:60,ph:"e.g. Spacious 2 bedroom"},{id:"county",label:"County",options:M.counties},{id:"area",label:"Area or estate",max:50,ph:"e.g. Ruaka"},
+    {id:"type",label:"House type",options:M.types},{id:"rent",label:"Rent per month (KES)",type:"number"},{id:"tags",label:"Features (separate with commas)",w:1,max:100,ph:"Water included, Parking, Gated"}],
+    "Publish house",async v=>{await api("/houses","POST",v);tab="h";await load()});
+}
+function want(){
+  if(!need())return;
+  form("I\u2019m looking for a house","Landlords, agents and caretakers will see your name and number so they can contact you.",[
+    {id:"county",label:"Preferred county",options:M.counties},{id:"area",label:"Preferred area or estate",max:50,ph:"e.g. Kilimani"},
+    {id:"type",label:"House type",options:M.types},{id:"budget",label:"Max rent per month (KES)",type:"number"},{id:"note",label:"Anything else (optional)",w:1,max:120,ph:"e.g. Near a matatu stage, with parking"}],
+    "Post my request",async v=>{await api("/wanted","POST",v);tab="w";await load()});
+}
+function viewing(id){
+  if(!need())return;
+  form("Request a viewing","The person who posted this house will see your name and number and can call you.",[
+    {id:"when",label:"When can you view it?",options:["Today","Tomorrow","This weekend","Any day this week"]},{id:"message",label:"Message (optional)",max:200,ph:"e.g. I can come after 5pm"}],
+    "Send request",async v=>{await api("/houses/"+id+"/enquiries","POST",v);$("#note").textContent="Request sent. The poster will see it under My account and can call you."});
+}
+
+const who=(role,name,phone,extra)=>phone?`<small>${esc(RL[role]||"House hunter")}</small><strong>${esc(name)}</strong><strong>${esc(pretty(phone))}</strong><div class="act"><a class="call" href="tel:+${intl(phone)}">Call</a>${extra}</div>`
+  :`<small>${esc(RL[role]||"House hunter")}</small><div class="act"><button class="wa" data-act="auth">Sign in to see the phone number</button></div>`;
+const houseCard=h=>`<article class="card"><div class="top" style="background:${hue(h.type)}"><button class="fav" data-act="fav" data-id="${h.id}" aria-label="${saved.has(h.id)?"Remove from saved":"Save this house"}">${saved.has(h.id)?"\u2665":"\u2661"}</button><b>${fmt(h.rent)}</b><span>per month</span></div><div class="body"><h2>${esc(h.title)}</h2><p class="loc">${esc(h.area)} (${esc(h.county)} County)</p><div class="chips"><span class="chip">${esc(h.type)}</span>${h.tags.map(t=>`<span class="chip">${esc(t)}</span>`).join("")}</div><div class="care">${who(h.role,h.name,h.phone,h.mine?"":`<button class="wa" data-act="view" data-id="${h.id}">Request viewing</button>`)}${h.mine?`<button class="link del" data-act="delh" data-id="${h.id}">Remove this listing</button>`:""}</div></div></article>`;
+const wantCard=w=>`<article class="card"><div class="top" style="background:#2b3f8f"><b>Up to ${fmt(w.budget)}</b><span>per month</span></div><div class="body"><h2>Looking for: ${esc(w.type)}</h2><p class="loc">Preferred area: ${esc(w.area)} (${esc(w.county)} County)</p>${w.note?`<p class="loc">${esc(w.note)}</p>`:""}<div class="care">${who("hunter",w.name,w.phone,w.phone?`<a class="wa" href="https://wa.me/${intl(w.phone)}?text=${encodeURIComponent("Hello "+w.name+", I have a "+w.type+" in "+w.area+" that may suit you. Are you still looking?")}" target="_blank" rel="noopener">WhatsApp</a>`:"")}${w.mine?`<button class="link del" data-act="delw" data-id="${w.id}">Remove this request</button>`:""}</div></div></article>`;
+const empty=(a,b)=>`<div class="empty"><p><b>${a}</b></p><p>${b}</p></div>`;
+
+function draw(){
+  $("#acct").innerHTML=(M.user?`<span>Hi, ${esc(M.user.name)}</span><button class="btn ghost" data-act="out">Sign out</button>`:`<button class="btn ghost" data-act="in">Sign in</button><button class="btn" data-act="up">Create account</button>`)+`<button class="btn" data-act="post">Post a house</button><button class="btn ghost" data-act="want">I\u2019m looking for a house</button>`;
+  $("#tabs").innerHTML=[["h","Houses to rent"],["w","House hunters looking"],...(M.user?[["m","My account"]]:[])].map(t=>`<button class="tab ${tab===t[0]?"on":""}" data-tab="${t[0]}">${t[1]}</button>`).join("");
+  document.querySelector(".bar").style.display=document.querySelector(".meta").style.display=tab==="m"?"none":"";
+  if(tab==="h"){const r=data.h.filter(h=>!onlySaved||saved.has(h.id));$("#count").textContent=r.length+(r.length===1?" house":" houses")+" found, lowest rent first";
+    $("#list").innerHTML=r.length?r.map(houseCard).join(""):empty(data.h.length?"No saved houses yet.":"No houses match these filters.","Try a higher rent, another county or clear the filters, or tap \u201cI\u2019m looking for a house\u201d so owners can contact you.")}
+  else if(tab==="w"){$("#count").textContent=data.w.length+(data.w.length===1?" house hunter":" house hunters")+" looking";
+    $("#list").innerHTML=data.w.length?data.w.map(wantCard).join(""):empty("No house hunters match.","Landlords and agents will see requests here.")}
+  else{const m=data.mine;if(!m){$("#list").innerHTML="";return}
+    $("#list").innerHTML=`<h2 class="sec">Viewing requests on my houses</h2>`+(m.enquiries.length?m.enquiries.map(e=>`<article class="card"><div class="body"><h2>${esc(e.name)} wants to view ${esc(e.title)}</h2><p class="loc">When: ${esc(e.when)}</p>${e.message?`<p class="loc">${esc(e.message)}</p>`:""}<div class="care"><strong>${esc(pretty(e.phone))}</strong><div class="act"><a class="call" href="tel:+${intl(e.phone)}">Call</a><a class="wa" href="https://wa.me/${intl(e.phone)}" target="_blank" rel="noopener">WhatsApp</a></div></div></div></article>`).join(""):empty("No viewing requests yet.","They appear here when a house hunter asks to view one of your houses."))
+      +`<h2 class="sec">My houses</h2>`+(m.houses.length?m.houses.map(houseCard).join(""):empty("You have not posted a house.","Tap \u201cPost a house\u201d to add one."))
+      +`<h2 class="sec">My house requests</h2>`+(m.wanted.length?m.wanted.map(wantCard).join(""):empty("No requests posted.","Tap \u201cI\u2019m looking for a house\u201d to post one."))}
+}
+async function load(){
+  try{
+    const qs=new URLSearchParams({county:$("#county").value,type:$("#type").value,max:$("#price").value,q:$("#q").value.trim()});
+    if(tab==="h")data.h=(await api("/houses?"+qs)).houses;
+    else if(tab==="w")data.w=(await api("/wanted?"+qs)).wanted;
+    else if(M.user)data.mine=await api("/my");
+  }catch(e){$("#note").textContent=e.message}
+  draw();
+}
+document.addEventListener("click",async e=>{
+  const t=e.target.closest("[data-tab]");if(t){tab=t.dataset.tab;$("#note").textContent="";return load()}
+  const b=e.target.closest("[data-act]");if(!b)return;const a=b.dataset.act,id=+b.dataset.id;
+  if(a==="in"||a==="up")auth(a);else if(a==="auth")auth("up");
+  else if(a==="out"){await api("/logout","POST");M.user=null;data.mine=null;if(tab==="m")tab="h";load()}
+  else if(a==="post")postHouse();else if(a==="want")want();else if(a==="view")viewing(id);
+  else if(a==="fav"){saved.has(id)?saved.delete(id):saved.add(id);try{localStorage.setItem("nyumba-saved",JSON.stringify([...saved]))}catch(x){}draw()}
+  else if((a==="delh"||a==="delw")&&confirm("Remove this?")){try{await api((a==="delh"?"/houses/":"/wanted/")+id,"DELETE");load()}catch(x){$("#note").textContent=x.message}}
+});
+let tm;["q","county","type","price"].forEach(i=>$("#"+i).addEventListener("input",()=>{clearTimeout(tm);tm=setTimeout(load,250)}));
+$("#favOnly").onclick=e=>{onlySaved=!onlySaved;e.target.setAttribute("aria-pressed",onlySaved);e.target.textContent=onlySaved?"Show all houses":"Show saved only";draw()};
+$("#reset").onclick=()=>{["q","county","type"].forEach(i=>$("#"+i).value="");$("#price").value="0";onlySaved=false;$("#favOnly").textContent="Show saved only";load()};
+(async()=>{
+  try{M=await api("/meta");
+    const o=(a,l)=>`<option value="">${l}</option>`+a.map(v=>`<option>${esc(v)}</option>`).join("");
+    $("#county").innerHTML=o(M.counties,"All counties");$("#type").innerHTML=o(M.types,"All types");
+  }catch(e){$("#note").textContent="Could not reach the server. Reload the page to try again."}
+  load();
+})();
+</script>
+</body>
+</html>

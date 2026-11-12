@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: nyumba-kenya
+    runtime: node
+    plan: starter            # a paid plan is needed: the free plan has no disk, so houses and accounts would be lost
+    buildCommand: echo "nothing to build"
+    startCommand: node server.js
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DB_FILE
+        value: /var/data/nyumba.db
+      - key: TRUST_PROXY
+        value: "1"
+      - key: ADMIN_PHONE
+        sync: false           # Render asks you for this: your own phone number, e.g. 0712345678
+    disk:
+      name: nyumba-data
+      mountPath: /var/data
+      sizeGB: 1

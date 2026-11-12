@@ -1,0 +1,7 @@
+{
+  "name": "nyumba-kenya",
+  "version": "1.0.0",
+  "description": "House hunting app for Kenya with its own sign-in",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=22.13" }
+}
